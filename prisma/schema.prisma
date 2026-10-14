@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Business {
+  id            String         @id @default(cuid())
+  name          String
+  industry      String?
+  createdAt     DateTime       @default(now())
+  transactions  Transaction[]
+  auditFindings AuditFinding[]
+  products      Product[]
+  stockChecks   StockCheck[]
+}
+
+model Transaction {
+  id              String   @id @default(cuid())
+  businessId      String
+  externalId      String?
+  amount          Float
+  type            String
+  status          String
+  reference       String?
+  terminalId      String?
+  source          String
+  transactionDate DateTime
+  rawData         String?
+  createdAt       DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId])
+  @@index([transactionDate])
+  @@index([externalId])
+}
+
+model AuditFinding {
+  id          String   @id @default(cuid())
+  businessId  String
+  ruleType    String
+  title       String
+  severity    String   // LOW, MEDIUM, HIGH, CRITICAL
+  description String
+  actionable  String
+  amount      Float?
+  createdAt   DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId])
+}
+
+model Product {
+  id               String       @id @default(cuid())
+  businessId       String
+  name             String
+  unitsPerCarton   Int          @default(1)
+  totalUnitsBought Int          @default(0)
+  totalUnitsSold   Int          @default(0)
+  unitPrice        Float
+  createdAt        DateTime     @default(now())
+
+  business    Business     @relation(fields: [businessId], references: [id])
+  stockChecks StockCheck[]
+
+  @@index([businessId])
+}
+
+model StockCheck {
+  id               String   @id @default(cuid())
+  businessId       String
+  productId        String
+  actualPhysical   Int
+  expectedPhysical Int
+  discrepancy      Int
+  checkedAt        DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id])
+  product  Product  @relation(fields: [productId], references: [id])
+
+  @@index([businessId])
+  @@index([productId])
+}
