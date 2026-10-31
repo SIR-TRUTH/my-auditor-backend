@@ -43,7 +43,7 @@ model Product {
   sku           String
   name          String
   category      String?
-  unitCost      Float               @default(0.0) // Weighted Average Cost (WAC)
+  unitCost      Float               @default(0.0)
   sellingPrice  Float               @default(0.0)
   stockLevel    Float               @default(0.0)
   minStockLevel Float               @default(5.0)
@@ -62,10 +62,10 @@ model InventoryMovement {
   branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   productId String
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  type      String   // IN, OUT, ADJUSTMENT
+  type      String
   quantity  Float
   unitCost  Float
-  reference String?  // Purchase ID or Sale ID
+  reference String?
   createdAt DateTime @default(now())
 }
 
@@ -98,7 +98,7 @@ model Sale {
   businessId    String
   business      Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
   branchId      String
-  branch        Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  branch      Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
   customerName  String?
   totalAmount   Float
   paymentMethod String     @default("CASH")
@@ -114,7 +114,7 @@ model SaleItem {
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   quantity  Float
   unitPrice Float
-  cogs      Float    @default(0.0) // COGS at time of sale based on WAC
+  cogs      Float    @default(0.0)
   subtotal  Float
 }
 
@@ -124,7 +124,7 @@ model Expense {
   business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   branchId    String
   branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  category    String   // Rent, Salaries, Utilities, etc.
+  category    String
   amount      Float
   description String?
   createdAt   DateTime @default(now())
@@ -134,10 +134,10 @@ model JournalEntry {
   id         String   @id @default(uuid())
   businessId String
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  account    String   // e.g. "Cash", "Inventory", "Sales", "COGS", "Expenses", "Accounts Payable"
+  account    String
   debit      Float    @default(0.0)
   credit     Float    @default(0.0)
-  reference  String?  // Sale ID, Purchase ID, Expense ID
+  reference  String?
   createdAt  DateTime @default(now())
 }
 
@@ -145,7 +145,7 @@ model AuditFinding {
   id          String   @id @default(uuid())
   businessId  String
   business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  severity    String   // LOW, MEDIUM, HIGH, CRITICAL
+  severity    String
   title       String
   description String
   status      String   @default("OPEN")
