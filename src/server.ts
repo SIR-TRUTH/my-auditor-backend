@@ -19,6 +19,6 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "OK", message: "MY-AUDITOR Backend Running" });
 });
 
-app.listen(PORT, () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`MY-AUDITOR server running on port ${PORT}`);
 });
