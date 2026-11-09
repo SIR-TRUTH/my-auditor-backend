@@ -21,6 +21,7 @@ model Business {
   stockChecks   StockCheck[]
   movements     InventoryMovement[]
   transactions  Transaction[]
+  journalEntries JournalEntry[]
 }
 
 model Branch {
@@ -32,6 +33,7 @@ model Branch {
   updatedAt  DateTime            @updatedAt
   products   Product[]
   movements  InventoryMovement[]
+  purchases  Purchase[]
 }
 
 model Product {
@@ -52,6 +54,7 @@ model Product {
   wac              Float               @default(0)
   unitsPerCarton   Int                 @default(1)
   totalUnitsBought Float               @default(0)
+  totalUnitsSold   Float               @default(0)
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   movements        InventoryMovement[]
@@ -62,24 +65,27 @@ model Product {
 }
 
 model InventoryMovement {
-  id         String   @id @default(uuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  branchId   String?
-  branch     Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  productId  String
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  type       String   
-  quantity   Float
-  unitCost   Float    @default(0)
-  notes      String?
-  createdAt  DateTime @default(now())
+  id          String   @id @default(uuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branchId    String?
+  branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type        String   
+  quantity    Float
+  unitCost    Float    @default(0)
+  referenceId String?
+  notes       String?
+  createdAt   DateTime @default(now())
 }
 
 model Purchase {
   id          String   @id @default(uuid())
   businessId  String
   business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branchId    String?
+  branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   supplierId  String?
   totalAmount Float    @default(0)
   createdAt   DateTime @default(now())
@@ -116,7 +122,7 @@ model AuditFinding {
   severity    String   
   description String
   ruleType    String?
-  actionable  Boolean  @default(true)
+  actionable  String?  
   createdAt   DateTime @default(now())
 }
 
@@ -131,16 +137,31 @@ model StockCheck {
   expectedPhysical Float    @default(0)
   actualPhysical   Float    @default(0)
   discrepancy      Float    @default(0)
+  checkedAt        DateTime @default(now())
   createdAt        DateTime @default(now())
 }
 
 model Transaction {
+  id              String   @id @default(uuid())
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  amount          Float    @default(0)
+  type            String   
+  status          String?  @default("COMPLETED")
+  source          String?  @default("MANUAL")
+  reference       String?
+  description     String?
+  transactionDate DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model JournalEntry {
   id          String   @id @default(uuid())
   businessId  String
   business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  amount      Float    @default(0)
-  type        String   
   description String?
+  amount      Float    @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
