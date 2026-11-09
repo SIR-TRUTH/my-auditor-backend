@@ -43,7 +43,7 @@ model Product {
   branchId         String?
   branch           Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
   name             String
-  sku              String
+  sku              String              @default("DEFAULT-SKU")
   category         String?             @default("Finished Goods")
   quantity         Float               @default(0)
   stock            Float               @default(0)
@@ -53,6 +53,7 @@ model Product {
   unitCost         Float               @default(0)
   sellingPrice     Float               @default(0)
   unitPrice        Float               @default(0)
+  price            Float               @default(0)
   wac              Float               @default(0)
   unitsPerCarton   Int                 @default(1)
   totalUnitsBought Float               @default(0)
@@ -90,6 +91,7 @@ model Purchase {
   branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   supplierId  String?
   reference   String?
+  status      String?  @default("PAID")
   totalAmount Float    @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -112,8 +114,6 @@ model SaleItem {
   productId String
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   quantity  Float
-  unitPrice Float
-  unitCost  Float    @default(0)
   subtotal  Float
 }
 
@@ -161,12 +161,13 @@ model Transaction {
 }
 
 model JournalEntry {
-  id          String   @id @default(uuid())
-  businessId  String
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  reference   String?
-  description String?
-  amount      Float    @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(uuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  reference    String?
+  debitAccount String?  @default("Inventory Asset")
+  description  String?
+  amount       Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
