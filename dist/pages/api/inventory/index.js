@@ -4,65 +4,40 @@ exports.default = handler;
 const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
 async function handler(req, res) {
-    const businessId = req.headers['x-business-id'] || 'default-business-id';
-    const branchId = req.query.branchId;
-    if (req.method === 'GET') {
+    if (req.method === "GET") {
         try {
+            const { businessId } = req.query;
             const products = await prisma.product.findMany({
-                where: {
-                    businessId,
-                    ...(branchId && branchId !== 'All Branches' ? { branchId } : {}),
-                },
-                include: { branch: true, movements: true },
-                orderBy: { createdAt: 'desc' },
+                where: { businessId: String(businessId) },
+                include: { branch: true },
             });
-            return res.status(200).json({ success: true, data: products });
+            return res.status(200).json(products);
         }
         catch (error) {
-            return res.status(500).json({ success: false, error: error.message });
+            return res.status(500).json({ error: "Failed to fetch inventory" });
         }
     }
-    if (req.method === 'POST') {
+    if (req.method === "POST") {
         try {
-            const { name, sku, category, quantity, costPrice, sellingPrice, branchId } = req.body;
-            if (!name || !sku) {
-                return res.status(400).json({ success: false, error: 'Product name and SKU are required' });
-            }
-            const result = await prisma.$transaction(async (tx) => {
-                const product = await tx.product.create({
-                    data: {
-                        businessId,
-                        branchId: branchId || null,
-                        name,
-                        sku,
-                        category: category || 'Finished Goods',
-                        quantity: Number(quantity) || 0,
-                        costPrice: Number(costPrice) || 0,
-                        sellingPrice: Number(sellingPrice) || 0,
-                        wac: Number(costPrice) || 0,
-                    },
-                });
-                if (Number(quantity) > 0 && branchId) {
-                    await tx.inventoryMovement.create({
-                        data: {
-                            businessId,
-                            branchId,
-                            productId: product.id,
-                            type: 'OPENING_BALANCE',
-                            quantity: Number(quantity),
-                            unitCost: Number(costPrice),
-                            notes: 'Initial opening stock creation',
-                        },
-                    });
-                }
-                return product;
+            const { businessId, branchId, name, sku, category, quantity, costPrice, sellingPrice, minStockLevel } = req.body;
+            const product = await prisma.product.create({
+                data: {
+                    businessId,
+                    branchId,
+                    name,
+                    sku,
+                    category,
+                    quantity: Number(quantity),
+                    costPrice: Number(costPrice),
+                    sellingPrice: Number(sellingPrice),
+                    minStockLevel: Number(minStockLevel),
+                },
             });
-            return res.status(201).json({ success: true, data: result });
+            return res.status(201).json(product);
         }
         catch (error) {
-            return res.status(500).json({ success: false, error: error.message });
+            return res.status(500).json({ error: "Failed to create product" });
         }
     }
-    res.setHeader('Allow', ['GET', 'POST']);
-    return res.status(405).end(`Method ${req.method} Not Allowed`);
+    return res.status(405).json({ message: "Method not allowed" });
 }

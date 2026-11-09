@@ -1,62 +1,37 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import multer from "multer";
 
 const router = Router();
 const prisma = new PrismaClient();
-const upload = multer({ storage: multer.memoryStorage() });
 
-// Scan live camera photo or uploaded receipt/invoice file
-router.post("/:businessId/scan-receipt", upload.single("receipt"), async (req: any, res: any) => {
+// Ingest endpoint for external logs/records or audit triggers
+router.post("/", async (req: Request, res: Response) => {
   try {
-    const { businessId } = req.params;
-    
-    const business = await prisma.business.findUnique({ where: { id: businessId } });
-    if (!business) {
-      return res.status(404).json({ message: "Business profile not found." });
+    const { businessId, severity, description, title, ruleType, amount, actionable } = req.body;
+
+    if (!businessId) {
+      return res.status(400).json({ error: "businessId is required" });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ message: "No receipt or camera image provided." });
-    }
-
-    // Simulated OCR & AI Extraction Pipeline for camera/file uploads
-    // In production, this processes the image buffer through a vision model or OCR engine
-    const extractedItems = [
-      { name: "Coca-Cola 50cl", quantity: 30, price: 350 },
-      { name: "Indomie Super Pack", quantity: 60, price: 200 },
-      { name: "Dano Milk 500g", quantity: 15, price: 1500 },
-    ];
-
-    const processedProducts = [];
-
-    for (const item of extractedItems) {
-      const product = await prisma.product.create({
-        data: {
-          businessId,
-          name: item.name,
-          stock: item.quantity,
-          price: item.price,
-        },
-      });
-      processedProducts.push(product);
-    }
-
-    await prisma.auditFinding.create({
+    const finding = await prisma.auditFinding.create({
       data: {
         businessId,
-        severity: "INFO",
-        description: `Live receipt/camera scan successful. Automatically reconciled and added ${processedProducts.length} items to inventory.`,
+        title: title || "Data Ingest Finding",
+        severity: severity || "MEDIUM",
+        description: description || "Ingested record flagged for audit verification.",
+        ruleType: ruleType || null,
+        amount: amount ? Number(amount) : 0,
+        actionable: actionable || null,
       },
     });
 
-    return res.status(200).json({
-      message: "Receipt scanned and inventory updated automatically via live capture.",
-      extractedItems: processedProducts,
+    return res.status(201).json({
+      message: "Record successfully ingested and audit finding created",
+      finding,
     });
   } catch (error: any) {
-    console.error("Camera/Receipt scan error:", error);
-    return res.status(500).json({ message: error.message || "Failed to process receipt capture." });
+    console.error("Ingest error:", error);
+    return res.status(500).json({ error: "Failed to process ingest record", details: error.message });
   }
 });
 

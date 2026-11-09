@@ -1,76 +1,38 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { PrismaClient } from '@prisma/client';
+import { Request, Response } from "express";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const businessId = (req.headers['x-business-id'] as string) || 'default-business-id';
-
-  if (req.method === 'POST') {
+export default async function handler(req: Request, res: Response) {
+  if (req.method === "POST") {
     try {
-      const { branchId, supplierId, items, paymentMethod } = req.body;
-
-      if (!branchId || !items || items.length === 0) {
-        return res.status(400).json({ success: false, error: 'Branch and purchase items are required' });
-      }
-
-      const reference = `PUR-${Math.floor(100000 + Math.random() * 900000)}`;
-      let totalAmount = 0;
+      const { businessId, supplierId, reference, items, paymentMethod, totalAmount } = req.body;
 
       const result = await prisma.$transaction(async (tx) => {
-        const purchaseItemsData = items.map((item: any) => {
-          const totalCost = item.quantity * item.unitCost;
-          totalAmount += totalCost;
-          return {
-            productId: item.productId,
-            quantity: item.quantity,
-            unitCost: item.unitCost,
-            totalCost,
-          };
-        });
-
         const purchase = await tx.purchase.create({
           data: {
             businessId,
-            branchId,
-            supplierId: supplierId || null,
+            supplierId,
             reference,
-            totalAmount,
-            status: paymentMethod === 'CREDIT' ? 'PAYABLE' : 'PAID',
-            items: { create: purchaseItemsData },
+            totalAmount: Number(totalAmount),
+            status: paymentMethod === "CREDIT" ? "PAYABLE" : "PAID",
           },
         });
 
         for (const item of items) {
-          const product = await tx.product.findUnique({ where: { id: item.productId } });
-          if (!product) continue;
-
-          const oldQty = product.quantity;
-          const oldValuation = oldQty * product.wac;
-          const newAdditionVal = item.quantity * item.unitCost;
-          const newTotalQty = oldQty + item.quantity;
-          const newWac = newTotalQty > 0 ? (oldValuation + newAdditionVal) / newTotalQty : item.unitCost;
-
-          await tx.product.update({
-            where: { id: item.productId },
+          await tx.purchaseItem.create({
             data: {
-              quantity: newTotalQty,
-              costPrice: item.unitCost,
-              wac: newWac,
+              purchaseId: purchase.id,
+              productId: item.productId,
+              quantity: Number(item.quantity),
+              unitCost: Number(item.unitCost),
+              subtotal: Number(item.quantity) * Number(item.unitCost),
             },
           });
 
-          await tx.inventoryMovement.create({
-            data: {
-              businessId,
-              branchId,
-              productId: item.productId,
-              type: 'PURCHASE',
-              quantity: item.quantity,
-              unitCost: item.unitCost,
-              referenceId: purchase.id,
-              notes: `Purchase batch ${reference}`,
-            },
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { quantity: { increment: Number(item.quantity) } },
           });
         }
 
@@ -78,22 +40,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           data: {
             businessId,
             reference,
-            description: `Inventory purchase via ${paymentMethod}`,
-            debitAccount: 'Inventory Asset',
-            creditAccount: paymentMethod === 'CREDIT' ? 'Accounts Payable' : 'Bank / Cash',
-            amount: totalAmount,
+            debitAccount: "Inventory Asset",
+            creditAccount: paymentMethod === "CREDIT" ? "Accounts Payable" : "Bank / Cash",
+            amount: Number(totalAmount),
+            description: `Purchase reference ${reference || purchase.id}`,
           },
         });
 
         return purchase;
       });
 
-      return res.status(201).json({ success: true, data: result });
-    } catch (error: any) {
-      return res.status(500).json({ success: false, error: error.message });
+      return res.status(201).json(result);
+    } catch (error) {
+      return res.status(500).json({ error: "Failed to record purchase" });
     }
   }
 
-  res.setHeader('Allow', ['POST']);
-  return res.status(405).end(`Method ${req.method} Not Allowed`);
+  return res.status(405).json({ message: "Method not allowed" });
 }

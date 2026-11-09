@@ -1,106 +1,95 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.runAuditEngine = runAuditEngine;
-exports.generateExecutiveSummary = generateExecutiveSummary;
+exports.runAutomatedAudit = runAutomatedAudit;
 const client_1 = require("@prisma/client");
+const generative_ai_1 = require("@google/generative-ai");
 const prisma = new client_1.PrismaClient();
-async function runAuditEngine(businessId) {
+const genAI = new generative_ai_1.GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+async function runAutomatedAudit(businessId) {
     const findings = [];
-    // Fetch all transactions for this business
-    const transactions = await prisma.transaction.findMany({
-        where: { businessId },
-        orderBy: { transactionDate: "asc" },
-    });
-    const expenses = transactions.filter((tx) => tx.type === "EXPENSE");
-    const income = transactions.filter((tx) => tx.type === "INCOME");
-    // Rule 1: High Expense Spike Check
-    if (expenses.length > 0) {
-        const totalExpense = expenses.reduce((sum, tx) => sum + tx.amount, 0);
-        const avgExpense = totalExpense / expenses.length;
-        for (const exp of expenses) {
-            if (exp.amount > avgExpense * 1.5 && exp.amount > 20000) {
+    try {
+        // 1. Check for Expense Anomalies
+        const expenses = await prisma.transaction.findMany({
+            where: { businessId, type: "EXPENSE" },
+            orderBy: { transactionDate: "desc" },
+            take: 50,
+        });
+        if (expenses.length > 0) {
+            const totalExpenseAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
+            const avgExpense = totalExpenseAmount / expenses.length;
+            for (const exp of expenses) {
+                if (exp.amount > avgExpense * 3 && exp.amount > 50000) {
+                    const finding = await prisma.auditFinding.create({
+                        data: {
+                            businessId,
+                            title: "Unusually High Expense Detected",
+                            severity: "HIGH",
+                            description: `An expense of NGN ${exp.amount.toLocaleString()} on reference ${exp.reference || "N/A"} is significantly higher than your average expense of NGN ${Math.round(avgExpense).toLocaleString()}.`,
+                            ruleType: "EXPENSE_ANOMALY",
+                            amount: exp.amount,
+                            actionable: "Review receipt and verify approval for this expense claim.",
+                        },
+                    });
+                    findings.push(finding);
+                }
+            }
+        }
+        // 2. Check for Negative Cashflow or Revenue Discrepancies
+        const totalRevenueResult = await prisma.transaction.aggregate({
+            where: { businessId, type: "INCOME" },
+            _sum: { amount: true },
+        });
+        const totalRevenue = totalRevenueResult._sum.amount || 0;
+        const totalExpensesResult = await prisma.transaction.aggregate({
+            where: { businessId, type: "EXPENSE" },
+            _sum: { amount: true },
+        });
+        const totalExpenses = totalExpensesResult._sum.amount || 0;
+        if (totalExpenses > totalRevenue) {
+            const finding = await prisma.auditFinding.create({
+                data: {
+                    businessId,
+                    title: "Negative Operating Cashflow",
+                    severity: "HIGH",
+                    description: `Total operational expenses (NGN ${totalExpenses.toLocaleString()}) exceed total revenue (NGN ${totalRevenue.toLocaleString()}).`,
+                    ruleType: "CASHFLOW_DEFICIT",
+                    amount: totalExpenses - totalRevenue,
+                    actionable: "Audit recent supplier payments and recurring operational expenses immediately.",
+                },
+            });
+            findings.push(finding);
+        }
+        // 3. Check for Stock Discrepancies
+        const stockChecks = await prisma.stockCheck.findMany({
+            where: { businessId },
+            orderBy: { checkedAt: "desc" },
+            take: 20,
+        });
+        for (const check of stockChecks) {
+            if (check.discrepancy > 0) {
+                const product = await prisma.product.findUnique({
+                    where: { id: check.productId },
+                });
+                const unitPrice = product ? product.sellingPrice : 0;
+                const estimatedLossValue = check.discrepancy * unitPrice;
                 const finding = await prisma.auditFinding.create({
                     data: {
                         businessId,
-                        ruleType: "EXPENSE_SPIKE",
-                        title: "Unusually High Expense Detected",
-                        severity: "HIGH",
-                        amount: exp.amount,
-                        description: `An expense of NGN ${exp.amount.toLocaleString()} on reference ${exp.reference || "N/A"} is significantly higher than your average expense of NGN ${Math.round(avgExpense).toLocaleString()}.`,
-                        actionable: "Review receipt and verify approval for this expense claim.",
+                        title: `Stock Discrepancy Flagged: ${product?.name || "Unknown Product"}`,
+                        severity: check.discrepancy > 5 ? "HIGH" : "MEDIUM",
+                        description: `Physical stock audit revealed a missing quantity of ${check.discrepancy} unit(s). Expected: ${check.expectedPhysical}, Actual: ${check.actualPhysical}. Potential financial loss: NGN ${estimatedLossValue.toLocaleString()}.`,
+                        ruleType: "STOCK_DISCREPANCY",
+                        amount: estimatedLossValue,
+                        actionable: `Investigate physical store inventory, shift logs, and sales entries.`,
                     },
                 });
                 findings.push(finding);
             }
         }
-    }
-    // Rule 2: Low Profit Margin / Loss Check
-    const totalRevenue = income.reduce((sum, tx) => sum + tx.amount, 0);
-    const totalExpenses = expenses.reduce((sum, tx) => sum + tx.amount, 0);
-    if (totalExpenses > totalRevenue && totalRevenue > 0) {
-        const finding = await prisma.auditFinding.create({
-            data: {
-                businessId,
-                ruleType: "NET_LOSS_ALERT",
-                title: "Business Operating at a Loss",
-                severity: "CRITICAL",
-                amount: totalExpenses - totalRevenue,
-                description: `Total expenses (NGN ${totalExpenses.toLocaleString()}) exceed total revenue (NGN ${totalRevenue.toLocaleString()}).`,
-                actionable: "Audit recent supplier payments and recurring operational expenses immediately.",
-            },
-        });
-        findings.push(finding);
-    }
-    // Rule 3: Inventory Discrepancy Check (Stock Leakage)
-    const stockChecks = await prisma.stockCheck.findMany({
-        where: { businessId },
-        include: { product: true },
-        orderBy: { checkedAt: "desc" },
-    });
-    for (const check of stockChecks) {
-        if (check.discrepancy > 0) {
-            const estimatedLossValue = check.discrepancy * check.product.unitPrice;
-            const finding = await prisma.auditFinding.create({
-                data: {
-                    businessId,
-                    ruleType: "STOCK_LEAKAGE",
-                    title: `Stock Discrepancy Flagged: ${check.product.name}`,
-                    severity: "CRITICAL",
-                    amount: estimatedLossValue,
-                    description: `Physical stock audit revealed a missing quantity of ${check.discrepancy} unit(s) for ${check.product.name}. Expected: ${check.expectedPhysical}, Actual: ${check.actualPhysical}. Potential financial loss: NGN ${estimatedLossValue.toLocaleString()}.`,
-                    actionable: `Investigate physical store inventory, shift logs, and sales entries for ${check.product.name}.`,
-                },
-            });
-            findings.push(finding);
-        }
-    }
-    return findings;
-}
-const genai_1 = require("@google/genai");
-const ai = new genai_1.GoogleGenAI({});
-async function generateExecutiveSummary(businessName, metrics, findings) {
-    try {
-        const prompt = `
-You are an expert financial auditor analyzing business records for "${businessName}".
-
-Financial Data:
-- Total Revenue: NGN ${metrics.totalRevenue}
-- Total Expenses: NGN ${metrics.totalExpenses}
-- Net Profit: NGN ${metrics.netProfit} (${metrics.profitMargin} margin)
-
-Audit Findings Detected:
-${JSON.stringify(findings, null, 2)}
-
-Provide a concise 2-3 sentence executive audit summary explaining the overall financial health, highlighting any flagged anomalies, and giving 1 key actionable next step for store management.
-`;
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-        });
-        return response.text || "Executive summary unavailable.";
+        return { success: true, findingsCount: findings.length, findings };
     }
     catch (error) {
-        console.error("AI Executive Summary Error:", error);
-        return "Automated AI summary could not be generated at this time.";
+        console.error("Audit Engine Error:", error);
+        throw new Error(`Audit engine failed: ${error.message}`);
     }
 }
