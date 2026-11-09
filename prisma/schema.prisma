@@ -8,11 +8,11 @@ generator client {
 }
 
 model Business {
-  id            String          @id @default(uuid())
+  id            String              @id @default(uuid())
   name          String
   industry      String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
   products      Product[]
   branches      Branch[]
   purchases     Purchase[]
@@ -20,41 +20,43 @@ model Business {
   auditFindings AuditFinding[]
   stockChecks   StockCheck[]
   movements     InventoryMovement[]
+  transactions  Transaction[]
 }
 
 model Branch {
-  id         String   @id @default(uuid())
+  id         String              @id @default(uuid())
   businessId String
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business   Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
   name       String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
   products   Product[]
   movements  InventoryMovement[]
 }
 
 model Product {
-  id              String              @id @default(uuid())
-  businessId      String
-  business        Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  branchId        String?
-  branch          Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  name            String
-  sku             String
-  category        String?             @default("Finished Goods")
-  quantity        Float               @default(0)
-  stockLevel      Float               @default(0)
-  minStockLevel   Float               @default(0)
-  costPrice       Float               @default(0)
-  unitCost        Float               @default(0)
-  sellingPrice    Float               @default(0)
-  wac             Float               @default(0)
-  unitsPerCarton  Int                 @default(1)
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  movements       InventoryMovement[]
-  saleItems       SaleItem[]
-  stockChecks     StockCheck[]
+  id               String              @id @default(uuid())
+  businessId       String
+  business         Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branchId         String?
+  branch           Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  name             String
+  sku              String
+  category         String?             @default("Finished Goods")
+  quantity         Float               @default(0)
+  stockLevel       Float               @default(0)
+  minStockLevel    Float               @default(0)
+  costPrice        Float               @default(0)
+  unitCost         Float               @default(0)
+  sellingPrice     Float               @default(0)
+  wac              Float               @default(0)
+  unitsPerCarton   Int                 @default(1)
+  totalUnitsBought Float               @default(0)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  movements        InventoryMovement[]
+  saleItems        SaleItem[]
+  stockChecks      StockCheck[]
 
   @@unique([businessId, sku])
 }
@@ -119,15 +121,26 @@ model AuditFinding {
 }
 
 model StockCheck {
-  id             String   @id @default(uuid())
-  businessId     String
-  business       Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  productId      String
-  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  countedQty     Float
-  systemQty      Float
-  expectedPhysical Float  @default(0)
-  actualPhysical Float    @default(0)
-  discrepancy    Float    @default(0)
-  createdAt      DateTime @default(now())
+  id               String   @id @default(uuid())
+  businessId       String
+  business         Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  countedQty       Float    @default(0)
+  systemQty        Float    @default(0)
+  expectedPhysical Float    @default(0)
+  actualPhysical   Float    @default(0)
+  discrepancy      Float    @default(0)
+  createdAt        DateTime @default(now())
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  amount      Float    @default(0)
+  type        String   
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
