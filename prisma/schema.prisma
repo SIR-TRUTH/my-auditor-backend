@@ -25,7 +25,7 @@ model Business {
 model Branch {
   id         String   @id @default(uuid())
   businessId String
-  business   Business @using(businessId) @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   name       String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -66,7 +66,7 @@ model InventoryMovement {
   branch     Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
   productId  String
   product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  type       String   // e.g. OPENING_BALANCE, SALE, PURCHASE, ADJUSTMENT
+  type       String   
   quantity   Float
   unitCost   Float    @default(0)
   notes      String?
@@ -110,7 +110,7 @@ model AuditFinding {
   businessId  String
   business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   title       String
-  severity    String   // HIGH, MEDIUM, LOW
+  severity    String   
   description String
   ruleType    String?
   actionable  Boolean  @default(true)
