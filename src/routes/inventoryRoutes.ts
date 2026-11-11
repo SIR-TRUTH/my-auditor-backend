@@ -111,7 +111,7 @@ router.post("/", async (req: Request, res: Response) => {
             type: "OPENING_BALANCE",
             quantity: openingQuantity,
             unitCost,
-            reference: "Initial opening stock",
+            referenceId: `opening-${createdProduct.id}`,
           },
         });
       }
