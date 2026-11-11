@@ -26,6 +26,7 @@ router.get("/", async (req: Request, res: Response) => {
     });
 
     return res.status(200).json(products);
+
   } catch (error) {
     console.error("Inventory fetch error:", error);
 
@@ -106,6 +107,7 @@ router.post("/", async (req: Request, res: Response) => {
       if (openingQuantity > 0) {
         await tx.inventoryMovement.create({
           data: {
+            businessId,
             branchId,
             productId: createdProduct.id,
             type: "OPENING_BALANCE",
@@ -120,6 +122,7 @@ router.post("/", async (req: Request, res: Response) => {
     });
 
     return res.status(201).json(product);
+
   } catch (error) {
     console.error("Product creation error:", error);
 
@@ -127,6 +130,13 @@ router.post("/", async (req: Request, res: Response) => {
       error: "Failed to create product",
     });
   }
+});
+
+// METHOD NOT ALLOWED
+router.all("/", (_req: Request, res: Response) => {
+  return res.status(405).json({
+    error: "Method not allowed",
+  });
 });
 
 export default router;
