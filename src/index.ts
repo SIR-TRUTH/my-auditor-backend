@@ -8,7 +8,7 @@ import inventoryRoutes from "./routes/inventoryRoutes";
 
 const app = express();
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 8080;
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
@@ -22,11 +22,12 @@ app.get("/api/health", (_req, res) => {
   res.status(200).json({
     status: "OK",
     message: "MY-AUDITOR Backend Running",
+    port: PORT,
   });
 });
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(
-    `MY-AUDITOR backend listening on port ${PORT}`
+    `MY-AUDITOR backend listening on http://0.0.0.0:${PORT}`
   );
 });

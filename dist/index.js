@@ -8,18 +8,22 @@ const cors_1 = __importDefault(require("cors"));
 const businessRoutes_1 = __importDefault(require("./routes/businessRoutes"));
 const auditRoutes_1 = __importDefault(require("./routes/auditRoutes"));
 const ingestRoutes_1 = __importDefault(require("./routes/ingestRoutes"));
+const inventoryRoutes_1 = __importDefault(require("./routes/inventoryRoutes"));
 const app = (0, express_1.default)();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 8080;
 app.use((0, cors_1.default)({ origin: true, credentials: true }));
 app.use(express_1.default.json());
-// API Routes
 app.use("/api/businesses", businessRoutes_1.default);
 app.use("/api/audit", auditRoutes_1.default);
 app.use("/api/ingest", ingestRoutes_1.default);
+app.use("/api/inventory", inventoryRoutes_1.default);
 app.get("/api/health", (_req, res) => {
-    res.json({ status: "OK", message: "MY-AUDITOR Backend Running" });
+    res.status(200).json({
+        status: "OK",
+        message: "MY-AUDITOR Backend Running",
+        port: PORT,
+    });
 });
-// Explicitly listen on 0.0.0.0 to accept IPv4, IPv6, and local tunnels
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`⚡ MY-AUDITOR backend listening on http://0.0.0.0:${PORT}`);
+    console.log(`MY-AUDITOR backend listening on http://0.0.0.0:${PORT}`);
 });
