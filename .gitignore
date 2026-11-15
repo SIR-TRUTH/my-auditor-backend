@@ -1,2 +1,10 @@
-node_modules/ 
-client/ 
+node_modules/
+client/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Local uploads
+uploads/

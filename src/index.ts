@@ -26,8 +26,14 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(
-    `MY-AUDITOR backend listening on http://0.0.0.0:${PORT}`
-  );
-});
+// Export the Express application for Vercel.
+export default app;
+
+// Start a traditional server only when running outside Vercel.
+if (!process.env.VERCEL) {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(
+      `MY-AUDITOR backend listening on http://0.0.0.0:${PORT}`
+    );
+  });
+}
